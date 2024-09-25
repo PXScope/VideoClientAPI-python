@@ -10,16 +10,32 @@ struct VideoClientHandle {
 };
 
 // 전역 Python 콜백 저장소
-py::function g_py_disconnect_callback;
+std::unordered_map<video_client, py::function> g_py_data_callbacks;
+std::unordered_map<video_client, py::function> g_py_disconnect_callbacks;
 
-// C 스타일 콜백 함수
-void c_callback(video_client ctx, int code, const char* msg) {
-    if (!g_py_callback.is_none()) {
-        py::gil_scoped_acquire acquire;
+// C++ 데이터 콜백 함수
+void cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
+    py::gil_scoped_acquire acquire;
+    auto it = g_py_data_callbacks.find(ctx);
+    if (it != g_py_data_callbacks.end()) {
         try {
-            g_py_callback(reinterpret_cast<std::uintptr_t>(ctx), code, msg);
+            py::bytes py_data(reinterpret_cast<char*>(data), size);
+            it->second(VideoClientHandle(ctx), py_data, size, reinterpret_cast<std::uintptr_t>(frame_info));
         } catch (py::error_already_set &e) {
-            std::cerr << "Python callback error: " << e.what() << std::endl;
+            std::cerr << "Python data callback error: " << e.what() << std::endl;
+        }
+    }
+}
+
+// C++ 연결 해제 콜백 함수
+void cpp_disconnect_callback(video_client ctx, int code, const char* msg) {
+    py::gil_scoped_acquire acquire;
+    auto it = g_py_disconnect_callbacks.find(ctx);
+    if (it != g_py_disconnect_callbacks.end()) {
+        try {
+            it->second(VideoClientHandle(ctx), code, msg);
+        } catch (py::error_already_set &e) {
+            std::cerr << "Python disconnect callback error: " << e.what() << std::endl;
         }
     }
 }
@@ -50,9 +66,9 @@ PYBIND11_MODULE(video_client, m) {
             handle.ptr = nullptr;
         }
     });
-    m.def("connect_video_client", [](video_client client, const char* url, float timeout_sec, py::function callback) {
-        g_py_callback = callback;
-        return connect_video_client(client, url, timeout_sec, c_callback);
+    m.def("connect_video_client", [](VideoClientHandle& handle, const char* url, float timeout_sec, py::function callback) {
+        g_py_disconnect_callbacks[handle.ptr] = callback;
+        return connect_video_client(handle.ptr, url, timeout_sec, cpp_disconnect_callback);
     });
     m.def("disconnect_video_client", [](VideoClientHandle& handle) {
         return disconnect_video_client(handle.ptr);
@@ -60,12 +76,9 @@ PYBIND11_MODULE(video_client, m) {
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         return stop_video_client(handle.ptr);
     });
-//    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, on_data_cb cb) {
-//        return start_video_client(handle.ptr, vp_ctx, cb);
-//    });
-    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, py::function cb) {
-        g_py_callback = cb;
-        return start_video_client(handle.ptr, vp_ctx, cb);
+    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, py::function callback) {
+        g_py_data_callbacks[handle.ptr] = callback;
+        return start_video_client(handle.ptr, vp_ctx, cpp_data_callback);
     });
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         return stop_video_client(handle.ptr);
