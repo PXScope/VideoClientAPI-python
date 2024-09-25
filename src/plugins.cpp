@@ -9,8 +9,19 @@ struct VideoClientHandle {
     explicit VideoClientHandle(video_client p) : ptr(p) {}
 };
 
-void on_disconnect_callback(video_client ctx, int code, const char* msg) {
-    printf("Disconnected: %d, %s\n", code, msg);
+// 전역 Python 콜백 저장소
+py::function g_py_disconnect_callback;
+
+// C 스타일 콜백 함수
+void c_callback(video_client ctx, int code, const char* msg) {
+    if (!g_py_callback.is_none()) {
+        py::gil_scoped_acquire acquire;
+        try {
+            g_py_callback(reinterpret_cast<std::uintptr_t>(ctx), code, msg);
+        } catch (py::error_already_set &e) {
+            std::cerr << "Python callback error: " << e.what() << std::endl;
+        }
+    }
 }
 
 PYBIND11_MODULE(video_client, m) {
@@ -39,9 +50,9 @@ PYBIND11_MODULE(video_client, m) {
             handle.ptr = nullptr;
         }
     });
-    // m.def("connect_video_client", [](VideoClientHandle& handle, const char* url, float timeout_sec, on_disconnect_cb cb) {
-    m.def("connect_video_client", [](VideoClientHandle& handle, const char* url, float timeout_sec) {
-        return connect_video_client(handle.ptr, url, timeout_sec, on_disconnect_callback);
+    m.def("connect_video_client", [](video_client client, const char* url, float timeout_sec, py::function callback) {
+        g_py_callback = callback;
+        return connect_video_client(client, url, timeout_sec, c_callback);
     });
     m.def("disconnect_video_client", [](VideoClientHandle& handle) {
         return disconnect_video_client(handle.ptr);
@@ -49,7 +60,11 @@ PYBIND11_MODULE(video_client, m) {
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         return stop_video_client(handle.ptr);
     });
-    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, on_data_cb cb) {
+//    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, on_data_cb cb) {
+//        return start_video_client(handle.ptr, vp_ctx, cb);
+//    });
+    m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, py::function cb) {
+        g_py_callback = cb;
         return start_video_client(handle.ptr, vp_ctx, cb);
     });
     m.def("stop_video_client", [](VideoClientHandle& handle) {

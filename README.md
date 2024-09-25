@@ -10,6 +10,11 @@ VideoClientAPI Python version repo
 
 ## Installation
 ```shell
+git clone ?
+git submodule init
+git submodule update
+```
+```shell
 pip install -e .
 ```
 
