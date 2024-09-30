@@ -47,6 +47,5 @@ disconnect_video_client(clnt)
 release_video_client(clnt)
 ```
 ## Issue
-* [VideoClientAPI](VideoClientAPI)의 NvDecoder의 경우 NVDecoder로 되어있는 소스 NvDecoder로 변경 후 실행 필요
 * start_video_client 구현중
 * 콜백함수 파이썬 버전 구현중

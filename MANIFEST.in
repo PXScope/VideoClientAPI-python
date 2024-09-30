@@ -1,0 +1,1 @@
+include VideoClientAPI/linux_out/lib/*.so*

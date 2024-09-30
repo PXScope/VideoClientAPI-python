@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="grap-server" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="grap-server">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/user/workspace/VideoClientAPI-python" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

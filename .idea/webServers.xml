@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="fb2a5153-12d6-4b4d-890f-66570d315b66" name="grap-server">
+        <fileTransfer accessType="SFTP" host="192.168.0.50" port="22" sshConfigId="465c7c81-34f6-42ad-a6ce-26945df9bd89" sshConfig="user@192.168.0.50:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
