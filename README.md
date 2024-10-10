@@ -6,6 +6,7 @@ VideoClientAPI Python version repo
 
 * [VideoClientAPI](git@github.com:PXScope/VideoClientAPI.git)
 * [Pybind11](https://github.com/pybind/pybind11.git)
+* [pxcast-protocols-generated](git@github.com:PXScope/pxcast-protocols-generated.git)
 * cmake
 
 ## Installation
@@ -20,32 +21,36 @@ pip install -e .
 
 ## Usage
 ```python
-from video_client import *
+from pxgrabapi_python.client import GrabClient
 
-# api 초기화(가장 먼저 실행)
-api_init()
 
-# 새로운 비디오클라이언트 인스턴스 생성
-clnt = create_video_client()
-if clnt:
-    # 비디오 서버 연결
-    ret = connect_video_client(clnt, "", 3)
-    if ret == ApiError.SUCCESS.value:
-        dec_ctx = VideoProcContext()
-        dec_ctx.gpu_index = 0
-        dec_ctx.target_format = PixelFormat.RGB24
-        dec_ctx.target_fps = 30
-
-        start_video_client(clnt, dec_ctx, on_data_callback)
-    else:
-        print(ret)
-
-if clnt:
-    stop_video_client(clnt)
-
-disconnect_video_client(clnt)
-release_video_client(clnt)
+def main():
+    # 결과 확인을 위한 시각화클래스 호출
+    from pxgrabapi_python.utils import Visualizer
+    global visualizer
+    visualizer = Visualizer()
+    
+    # 콜백함수 정의
+    def cb(param):
+        global visualizer
+        print(visualizer.get_info_string(param))
+        visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
+    
+    # 클라이언트 설정
+    client = GrabClient(callback=cb,
+                        host="127.0.0.1",
+                        port=31000,
+                        devices=["MV-GTL-DEV-001"],
+                        fps=30,
+                        colorspace="rgb")
+    # 클라이언트 수신 실행
+    client.start_consumming()
 ```
-## Issue
-* start_video_client 구현중
-* 콜백함수 파이썬 버전 구현중
+
+## Etc
+### Making .whl file
+```shell
+cd ${ROOT_DIR}
+pip install wheel
+python setup.py bdist_wheel
+```

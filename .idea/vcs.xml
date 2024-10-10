@@ -3,6 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/VideoClientAPI" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/pybind11" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/pxcast-protocols-generated" vcs="Git" />
   </component>
 </project>

@@ -1,45 +1,24 @@
-from video_client import (create_video_client, connect_video_client, start_video_client, stop_video_client,
-                          disconnect_video_client, release_video_client, api_init)
-from video_client import ApiError, PixelFormat, VideoProcContext, MV_FRAME_INFO
-import time
-import sys
-import copy
-
-def get_frame_info_string(frame_info):
-    info = copy.deepcopy(frame_info)
-    oss = ''
-    oss += "\n[Frame Info]\n"
-    oss += "- frame_num: " + info.nFrameNum + "\n"
-    oss += "- timestamp: " + info.utc_timestamp_us + "\n"
-    # oss += "- deviceInfo: " + info.deviceInfo
-    return oss
-
-def on_data_callback(ctx, data, size, frame_info):
-    # print(get_frame_info_string(frame_info))
-    print('on_data_callback')
-
-def on_disconnect_callback(ctx, code, msg):
-    print(sys.stdout)
-    print(f"Disconnected: code={code}, msg={msg}")
+from pxgrabapi_python.client import GrabClient
 
 
-api_init()
+def main():
+    from pxgrabapi_python.utils import Visualizer
+    global visualizer
+    visualizer = Visualizer()
 
-clnt = create_video_client()
-if clnt:
-    ret = connect_video_client(clnt, "tcp://127.0.0.1:31000/MV-GTL-DEV-001", 3, on_disconnect_callback)
+    def cb(param):
+        global visualizer
+        print(visualizer.get_info_string(param))
+        visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
 
-    if ret == ApiError.SUCCESS.value:
-        dec_ctx = VideoProcContext()
-        dec_ctx.gpu_index = 0
-        dec_ctx.target_format = PixelFormat.RGB24
-        dec_ctx.target_fps = 30
-        start_video_client(clnt, dec_ctx, on_data_callback)
+    client = GrabClient(callback=cb,
+                        host="127.0.0.1",
+                        port=31000,
+                        devices=["MV-GTL-DEV-001"],
+                        fps=30,
+                        colorspace="rgb")
+    client.start_consumming()
 
-        time.sleep(5)
 
-if clnt:
-    stop_video_client(clnt)
-
-disconnect_video_client(clnt)
-release_video_client(clnt)
+if __name__ == "__main__":
+    main()

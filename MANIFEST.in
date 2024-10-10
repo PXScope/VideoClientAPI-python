@@ -1,1 +1,2 @@
 include VideoClientAPI/linux_out/lib/*.so*
+include VideoClientAPI/linux_out/include/*.h*
