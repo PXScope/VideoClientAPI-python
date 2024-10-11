@@ -21,7 +21,7 @@ ext_modules = [
 
 setup(
     name="pxgrabapi_python",
-    version="0.0.1",
+    version="1.0.0",
     python_requires=">=3.8",
     packages=find_packages(),
     ext_modules=ext_modules,

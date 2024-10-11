@@ -1,12 +1,12 @@
 # VideoClientAPI-Python
 
-VideoClientAPI Python version repo
+VideoClientAPI Python version repo used for connecting Grab-server and Video-server.
 
 ## Dependencies
 
-* [VideoClientAPI](git@github.com:PXScope/VideoClientAPI.git)
+* [VideoClientAPI](https://github.com/PXScope/VideoClientAPI.git)
 * [Pybind11](https://github.com/pybind/pybind11.git)
-* [pxcast-protocols-generated](git@github.com:PXScope/pxcast-protocols-generated.git)
+* [pxcast-protocols-generated](https://github.com/PXScope/pxcast-protocols-generated.git)
 * cmake
 
 ## Installation
@@ -16,7 +16,8 @@ git submodule init
 git submodule update
 ```
 ```shell
-pip install -e .
+# 각 서브모듈 설치
+pip install .
 ```
 
 ## Usage
