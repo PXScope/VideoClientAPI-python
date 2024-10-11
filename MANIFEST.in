@@ -1,2 +1,2 @@
-include VideoClientAPI/linux_out/lib/*.so*
-include VideoClientAPI/linux_out/include/*.h*
+include pxgrabapi_python/lib/*.so*
+include pxgrabapi_python/include/*.h*

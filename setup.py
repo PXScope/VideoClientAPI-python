@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from pybind11.setup_helpers import Pybind11Extension
 import os
 
@@ -20,12 +20,20 @@ ext_modules = [
 ]
 
 setup(
-    name='pxgrabapi_python',
-    version='0.0.1',
-    python_requires='>=3.6',
-    packages=['pxgrabapi_python'],
+    name="pxgrabapi_python",
+    version="0.0.1",
+    python_requires=">=3.8",
+    packages=find_packages(),
     ext_modules=ext_modules,
-    package_data={'pxgrabapi_python': ['../VideoClientAPI/linux_out/lib/*.so*']},
+    package_data={"pxgrabapi_python": [
+        "lib/*.so*",
+        "include/*.h",
+    ]},
     include_package_data=True,
-    install_requires=["easydict", "pydantic==1.8.2"]
+    install_requires=["easydict",
+                      "pydantic==1.8.2",
+                      "numpy",
+                      "opencv-python",
+                      "easydict"],
+    dependency_links=[]
 )

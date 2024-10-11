@@ -5,9 +5,8 @@ from threading import Thread, Lock
 import numpy as np
 from easydict import EasyDict as edict
 
-from pxgrabapi_python.logging import get_logger
+from .logger import get_logger
 import pxgrabapi_python as api
-from pxgrabapi_python import ApiError, PixelFormat, VideoProcContext, MV_FRAME_INFO, PxMvCameraModel
 import pxproto.vision.detect as proto
 
 logger = get_logger(__name__)
@@ -99,19 +98,26 @@ class GrabClient:
         self.verbose = verbose
 
         if colorspace == "rgb":
-            DST_COLORSPACE = PixelFormat.RGB24
+            DST_COLORSPACE = api.PixelFormat.RGB24
         elif colorspace == "bgr":
-            DST_COLORSPACE = PixelFormat.BGR24
+            DST_COLORSPACE = api.PixelFormat.BGR24
         elif colorspace == "mono":
-            DST_COLORSPACE = PixelFormat.MONO
+            DST_COLORSPACE = api.PixelFormat.MONO
         else:
-            DST_COLORSPACE = PixelFormat.NONE
+            DST_COLORSPACE = api.PixelFormat.NONE
 
         self.c = api.create_video_client()
-        ret = api.connect_video_client(self.c, f"{protocol}://{host}:{port}/{device}", 3, self.on_disconnected)
+        if protocol == "tcp":
+            ret = api.connect_video_client(self.c, f"{protocol}://{host}:{port}/{device}", 3, self.on_disconnected)
+        elif protocol == "shdm":
+            ret = api.connect_video_client(self.c, f"{protocol}://{device}", 3, self.on_disconnected)
+        else:
+            raise ValueError(f"Input protocol is {protocol}. Protocol must be either tcp or shdm")
 
-        if ret != ApiError.SUCCESS:
-            raise Exception(f"[{ret}]Failed to create client: {device}")
+        if ret != api.ApiError.SUCCESS:
+            raise Exception(f"[{ret}] Failed to create client: {device}")
+
+        logger.info("Connected to " + f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}")
 
         self.p = api.VideoProcContext()
 
@@ -160,7 +166,7 @@ class GrabClient:
         camera_params = info.deviceInfo.camera_parameter
         intrinsic_params = camera_params.intrinsic
         extrinsic_params = camera_params.extrinsic
-        if info.deviceInfo.camera_parameter.camera_model == PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV:
+        if info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
                 fx_fy_cx_cy=[
@@ -173,7 +179,7 @@ class GrabClient:
                     intrinsic_params.cv.k3
                 ]
             )
-        elif info.deviceInfo.camera_parameter.camera_model == PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV_FISHEYE:
+        elif info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV_FISHEYE:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
                 fx_fy_cx_cy=[

@@ -1,8 +1,6 @@
 import copy
 import cv2
-from pxgrabapi_python import PxMvCameraModel, PixelFormat
 from pathlib import Path
-import numpy as np
 
 
 class Visualizer:
@@ -12,6 +10,7 @@ class Visualizer:
     @staticmethod
     def get_info_string(buffer):
         info = copy.deepcopy(buffer)
+        print(info)
         oss = ""
         oss += "\n[Frame Info]\n"
         oss += "- frame_num: " + str(info.package_number) + "\n"
