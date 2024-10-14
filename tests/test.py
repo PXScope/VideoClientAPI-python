@@ -1,8 +1,8 @@
-from pxgrabapi_python.client import GrabClient
+from videoclientapi_python.client import GrabClient
 
 
 def main():
-    from pxgrabapi_python.utils import Visualizer
+    from videoclientapi_python.utils import Visualizer
     global visualizer
     visualizer = Visualizer()
 

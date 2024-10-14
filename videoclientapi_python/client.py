@@ -6,7 +6,7 @@ import numpy as np
 from easydict import EasyDict as edict
 
 from .logger import get_logger
-import pxgrabapi_python as api
+import videoclientapi_python as api
 import pxproto.vision.detect as proto
 
 logger = get_logger(__name__)

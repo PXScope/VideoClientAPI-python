@@ -1,2 +1,2 @@
-include pxgrabapi_python/lib/*.so*
-include pxgrabapi_python/include/*.h*
+include videoclientapi_python/lib/*.so*
+include videoclientapi_python/include/*.h*

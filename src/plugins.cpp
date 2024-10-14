@@ -108,7 +108,7 @@ MV_FRAME_INFO copy_MV_FRAME_INFO(const MV_FRAME_INFO& self) {
     return frameInfo;
 }
 
-PYBIND11_MODULE(pxgrabapi_python, m) {
+PYBIND11_MODULE(videoclientapi_python, m) {
     m.doc() = "VideoClientAPI Python version.";
 
     // ********************

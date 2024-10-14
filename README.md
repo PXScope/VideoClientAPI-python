@@ -15,19 +15,25 @@ git clone ?
 git submodule init
 git submodule update
 ```
+### C++ 라이브러리 빌드
 ```shell
-# 각 서브모듈 설치
-pip install .
+cd VideoClientAPI
+mkdir build && cd build
+make install
+cp -r ../linux_out/* ../../videoclientapi_python
 ```
-
+### 라이브러리 설치
+```shell
+pip install -e .
+```
 ## Usage
 ```python
-from pxgrabapi_python.client import GrabClient
+from videoclientapi_python.client import GrabClient
 
 
 def main():
     # 결과 확인을 위한 시각화클래스 호출
-    from pxgrabapi_python.utils import Visualizer
+    from videoclientapi_python.utils import Visualizer
     global visualizer
     visualizer = Visualizer()
     
