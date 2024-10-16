@@ -21,7 +21,7 @@ ext_modules = [
 
 setup(
     name="videoclientapi_python",
-    version="1.0.0",
+    version="1.0.1",
     python_requires=">=3.8",
     packages=find_packages(),
     ext_modules=ext_modules,
@@ -33,7 +33,7 @@ setup(
     install_requires=[
                       "pydantic==1.8.2",
                       "numpy",
-                      "opencv-python",
+                      "opencv-python-headless",
                       "easydict"
     ],
 )
