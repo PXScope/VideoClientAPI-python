@@ -27,6 +27,7 @@ cp -r ../linux_out/* ../../videoclientapi_python
 pip install -e .
 ```
 ## Usage
+### Total pipeline
 ```python
 from videoclientapi_python.client import GrabClient
 
@@ -52,6 +53,34 @@ def main():
                         colorspace="rgb")
     # 클라이언트 수신 실행
     client.start_consumming()
+```
+### Server connection (video-server or grab-server)
+```python
+# video-server connection
+from videoclientapi_python.client import GrabClient
+
+client = GrabClient(callback=None,
+                    host="127.0.0.1",
+                    port=31000,
+                    devices=["MV-GTL-DEV-001"],
+                    fps=30,
+                    colorspace="rgb")
+client.start_consumming()
+```
+
+```python
+# grab-server connection
+from videoclientapi_python.client import GrabClient
+
+client = GrabClient(callback=None,
+                    host="",
+                    port="",
+                    devices=["DA3180173"],
+                    protocol="shdm",
+                    gpu_index=0,
+                    fps=30,
+                    colorspace="rgb")
+client.start_consumming()
 ```
 
 ## Etc

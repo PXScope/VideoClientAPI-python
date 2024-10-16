@@ -16,6 +16,7 @@ def main():
                         port=31000,
                         devices=["MV-GTL-DEV-001"],
                         fps=30,
+                        # verbose=True,
                         colorspace="rgb")
     client.start_consumming()
 

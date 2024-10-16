@@ -4,7 +4,7 @@ from collections import deque
 from threading import Thread, Lock
 import numpy as np
 from easydict import EasyDict as edict
-
+import logging
 from .logger import get_logger
 import videoclientapi_python as api
 import pxproto.vision.detect as proto
@@ -97,6 +97,12 @@ class GrabClient:
 
         self.verbose = verbose
 
+        if self.verbose:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.CRITICAL + 1)
+            logger.addHandler(logging.NullHandler())
+
         if colorspace == "rgb":
             DST_COLORSPACE = api.PixelFormat.RGB24
         elif colorspace == "bgr":
@@ -169,34 +175,34 @@ class GrabClient:
         if info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
-                fx_fy_cx_cy=[
+                fx_fy_cx_cy=[float(x) for x in [
                     intrinsic_params.cv.fx, intrinsic_params.cv.fy,
                     intrinsic_params.cv.cx, intrinsic_params.cv.cy
-                ],
-                distortion=[
+                ]],
+                distortion=[float(x) for x in [
                     intrinsic_params.cv.k1, intrinsic_params.cv.k2,
                     intrinsic_params.cv.p1, intrinsic_params.cv.p2,
                     intrinsic_params.cv.k3
-                ]
+                ]]
             )
         elif info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV_FISHEYE:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
-                fx_fy_cx_cy=[
+                fx_fy_cx_cy=[float(x) for x in [
                     intrinsic_params.fisheye.fx, intrinsic_params.fisheye.fy,
                     intrinsic_params.fisheye.cx, intrinsic_params.fisheye.cy
-                ],
-                distortion=[
+                ]],
+                distortion=[float(x) for x in [
                     intrinsic_params.fisheye.k1, intrinsic_params.fisheye.k2,
                     intrinsic_params.fisheye.k3, intrinsic_params.fisheye.k4,
-                ]
+                ]]
             )
         else:
             raise ValueError("Unsupported camera model")
         extrinsic_params_proto = proto.CameraExtrinsic(
             id=camera_params.extrinsic_id,
-            rvec=[x for x in extrinsic_params.rvec],
-            tvec=[x for x in extrinsic_params.tvec],
+            rvec=[float(x) for x in extrinsic_params.rvec],
+            tvec=[float(x) for x in extrinsic_params.tvec],
             rot_sys=[
                 proto.Axis.Z_Plus, proto.Axis.X_Plus, proto.Axis.Y_Minus
             ],
