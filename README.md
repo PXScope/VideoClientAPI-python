@@ -74,7 +74,7 @@ from videoclientapi_python.client import GrabClient
 
 client = GrabClient(callback=None,
                     host="",
-                    port="",
+                    port=0,
                     devices=["DA3180173"],
                     protocol="shdm",
                     gpu_index=0,
