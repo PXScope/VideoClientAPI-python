@@ -8,15 +8,17 @@ import logging
 from .logger import get_logger
 import videoclientapi_python as api
 import pxproto.vision.detect as proto
+import copy
 
 logger = get_logger(__name__)
 
 
 class CustomDeque(deque):
 
-    def __init__(self, maxlen, packages, lock):
+    def __init__(self, maxlen, ctx, packages, lock):
         super().__init__(maxlen=maxlen)
         self.packages = packages
+        self.c = ctx
         self.lock = lock
 
     def append(self, item):
@@ -28,7 +30,7 @@ class CustomDeque(deque):
     def release_packet(self, item):
         with self.lock:
             try:
-                del self.packages[item.package_key]
+                api.release_frame(self.c, item.package)
             except Exception as e:
                 logger.warning(
                     "failed to checkin package in deque: {}".format(e))
@@ -36,9 +38,10 @@ class CustomDeque(deque):
 
 class BufferQueue:
 
-    def __init__(self, size, packages, package_lock):
+    def __init__(self, size, ctx, packages, package_lock):
         self.queue = CustomDeque(maxlen=size,
                                  packages=packages,
+                                 ctx=ctx,
                                  lock=package_lock)
         self.lock = Lock()
 
@@ -59,7 +62,44 @@ class BufferQueue:
 
 
 class GrabClient:
+    """비디오 스트림을 캡쳐하고 처리하는 클라이언트 클래스
 
+    Args:
+        callback (callable): 프레임 처리 후 호출될 콜백 함수.
+        host (str): 연결할 호스트 주소.
+        port (int): 연결할 포트 번호.
+        devices (list): 사용할 디바이스 목록 (현재는 단일 디바이스만 지원).
+        fps (int, optional): 목표 프레임 레이트. Defaults to 0.
+        gpu_index (int, optional): 사용할 GPU 인덱스. Defaults to 0.
+        colorspace (str, optional): 사용할 색공간 ("rgb", "bgr", "mono"). Defaults to "rgb".
+        protocol (str, optional): 사용할 프로토콜 ("tcp" 또는 "shdm"). Defaults to "tcp".
+        max_buffer_size (int, optional): 최대 버퍼 크기. Defaults to 120.
+        stabilize_sec (float, optional): 클라이언트 안정화를 위한 대기 시간(초). Defaults to 1.
+        verbose (bool, optional): 상세 로깅 여부. Defaults to False.
+
+    Raises:
+        AssertionError: devices 리스트의 길이가 0이거나 1보다 큰 경우.
+        AssertionError: 지원하지 않는 colorspace가 지정된 경우.
+        ValueError: 지원하는 protocol(tcp, shmd)이 아닌경우.
+        Exception: 클라이언트 생성에 실패한 경우.
+
+    Example:
+        from videoclientapi_python.client import GrabClient
+
+        def cb(param):
+            pass
+
+        client = GrabClient(callback=cb,
+                            host="",
+                            port=0,
+                            devices=["DA3180173"],
+                            protocol="shdm",
+                            gpu_index=0,
+                            fps=30,
+                            colorspace="rgb")
+        client = GrabClient(frame_callback, "localhost", 8080, ["camera1"], fps=30)
+        client.start_consumming()
+    """
     def __init__(self,
                  callback,
                  host,
@@ -90,7 +130,6 @@ class GrabClient:
         self.package_lock = Lock()
 
         self.fps = fps
-        self.buffer_queue = BufferQueue(max_buffer_size, self.packages, self.package_lock)
 
         self.stabilize_ts = None
         self.stabilize_sec = stabilize_sec
@@ -123,7 +162,7 @@ class GrabClient:
         if ret != api.ApiError.SUCCESS:
             raise Exception(f"[{ret}] Failed to create client: {device}")
 
-        logger.info("Connected to " + f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}")
+        logger.info("Connected to " + (f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}"))
 
         self.p = api.VideoProcContext()
 
@@ -131,6 +170,9 @@ class GrabClient:
             self.p.target_fps = fps
         self.p.gpu_index = gpu_index
         self.p.target_format = DST_COLORSPACE
+
+        self.buffer_queue = BufferQueue(max_buffer_size, self.c, self.packages, self.package_lock)
+        # api.set_max_queue_size(self.c, max_buffer_size)
 
         self.handler_thread = Thread(target=self.handler,
                                      args=(
@@ -148,31 +190,32 @@ class GrabClient:
             logger.info(
                 f"waiting {self.stabilize_sec} sec for grab client stabilization"
             )
-            return
+            return True
         else:
             if time.perf_counter() - self.stabilize_ts < self.stabilize_sec:
-                return
+                return True
+        _info = copy.deepcopy(info)
 
-        package_number = info.nFrameNum
-        timestamp = info.utc_timestamp_us
+        package_number = _info.nFrameNum
+        timestamp = _info.utc_timestamp_us
         frame = data
-
-        width = int(info.deviceInfo.nWidth)
-        height = int(info.deviceInfo.nHeight)
-        device_name = str(info.deviceInfo.channelName)
+        width = int(_info.deviceInfo.nWidth)
+        height = int(_info.deviceInfo.nHeight)
+        device_name = str(_info.deviceInfo.channelName)
         channels = 1 if self.colorspace == "mono" else 3
 
         if size != height * width * channels:
-            height = int(size / (width * channels))
-            logger.warn(f"Frame size is weird: size: {size}, width: {width}, height: {height}, channels: {channels}")
-        image = np.asarray(frame)
+            logger.error(f"Frame size is weird: size: {size}, width: {width}, height: {height}, channels: {channels}")
+            return True
+        # image = np.asarray(frame)
+        image = np.frombuffer(frame, dtype=np.uint8)
         image = image.reshape((height, width, channels))
 
         # get camera parameters
-        camera_params = info.deviceInfo.camera_parameter
+        camera_params = _info.deviceInfo.camera_parameter
         intrinsic_params = camera_params.intrinsic
         extrinsic_params = camera_params.extrinsic
-        if info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV:
+        if _info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
                 fx_fy_cx_cy=[float(x) for x in [
@@ -185,7 +228,7 @@ class GrabClient:
                     intrinsic_params.cv.k3
                 ]]
             )
-        elif info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV_FISHEYE:
+        elif _info.deviceInfo.camera_parameter.camera_model == api.PxMvCameraModel.PXMV_CAMERA_MODEL_OPENCV_FISHEYE:
             intrinsic_params_proto = proto.CameraIntrinsic(
                 id=camera_params.intrinsic_id,
                 fx_fy_cx_cy=[float(x) for x in [
@@ -211,6 +254,8 @@ class GrabClient:
             ]
         )
         package_key = f"{device_name}_{timestamp}"
+        package = data.__array_interface__['data'][0]
+        # print(f"Python data address: 0x{data.__array_interface__['data'][0]:x}")
 
         self.buffer_queue.put(
             edict({
@@ -219,27 +264,34 @@ class GrabClient:
                 "image": image,
                 "intrinsic": intrinsic_params_proto,
                 "extrinsic": extrinsic_params_proto,
+                "package": package,
                 "package_key": package_key
             }))
+        # time.sleep(0.5)
+        return False
 
     def start_consumming(self):
         self.is_running = True
-        api.start_video_client(self.c, self.p, self.on_frame_package_received)
+        try:
+            ret = api.start_video_client(self.c, self.p, self.on_frame_package_received)
 
-        self.handler_thread.start()
+            self.handler_thread.start()
 
-        while self.is_running:
-            time.sleep(1e-6)
+            while self.is_running:
+                time.sleep(1e-6)
 
-        self.handler_thread.join()
+            self.handler_thread.join()
 
-        api.stop_video_client(self.c)
-        time.sleep(1)
+            api.stop_video_client(self.c)
+            time.sleep(1)
+            api.clear_all_frames(self.c)
 
-        api.disconnect_video_client(self.c)
-        api.release_video_client(self.c)
+        except Exception as e:
+            logger.error(e)
+        finally:
 
-        logger.info("client is terminated")
+            logger.info("client is terminated")
+
 
     def handler(self, buffer_queue, package_lock):
         while True:
@@ -253,6 +305,12 @@ class GrabClient:
             except:
                 logger.error(traceback.format_exc())
                 break
+            try:
+                api.release_frame(self.c, data.package)
+            except Exception as e:
+                logger.warning(
+                    "failed to checkin package in handler: {}".format(e)
+                )
 
         self.is_running = False
 

@@ -1,9 +1,12 @@
 #define PYBIND11_DETAILED_ERROR_MESSAGES
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <stdexcept>
 #include <pybind11/numpy.h>
 
 #include "video_client_api.h"
 #include "MvFrameHeader.h"
+#include <chrono>
 
 namespace py = pybind11;
 
@@ -11,6 +14,11 @@ namespace py = pybind11;
 struct VideoClientHandle {
     video_client ptr;
     explicit VideoClientHandle(video_client p) : ptr(p) {}
+    ~VideoClientHandle() {
+        if (ptr) {
+            ptr = nullptr;
+        }
+    }
 };
 
 // 전역 Python 콜백 저장소
@@ -18,28 +26,106 @@ std::unordered_map<video_client, py::function> g_py_data_callbacks;
 std::unordered_map<video_client, py::function> g_py_disconnect_callbacks;
 
 // C++ 데이터 콜백 함수
-void cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
-    py::gil_scoped_acquire acquire;
-    auto it = g_py_data_callbacks.find(ctx);
-    if (it != g_py_data_callbacks.end()) {
-        try {
-            auto py_data = py::array_t<uint8_t>(size);
-            py::buffer_info buf = py_data.request();
-            uint8_t* ptr = static_cast<uint8_t*>(buf.ptr);
-            std::memcpy(ptr, data, size * sizeof(uint8_t));
+//void cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
+//    py::gil_scoped_acquire acquire;
+//    auto it = g_py_data_callbacks.find(ctx);
+//    if (it != g_py_data_callbacks.end()) {
+//        try {
+//            auto start = std::chrono::high_resolution_clock::now();
+////            auto checkpoint = start;
+//
+//            // Step 1: Create py::array_t and Memory copy
+//            auto py_data = py::array_t<uint8_t>(size);
+//            py::buffer_info buf = py_data.request();
+//            uint8_t* ptr = static_cast<uint8_t*>(buf.ptr);
+//            std::memcpy(ptr, data, size * sizeof(uint8_t));
+////            auto after_array_creation = std::chrono::high_resolution_clock::now();
+////            std::cout << "Array creation and copy time: "
+////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_array_creation - checkpoint).count()
+////                      << " us" << std::endl;
+////            checkpoint = after_array_creation;
+//
+//            // Step 2: Create py::object for frame_info
+//            py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
+//
+////            auto after_frame_info = std::chrono::high_resolution_clock::now();
+////            std::cout << "Frame info creation time: "
+////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_frame_info - checkpoint).count()
+////                      << " us" << std::endl;
+////            checkpoint = after_frame_info;
+//
+//            // Step 3: Call Python callback
+//            it->second(VideoClientHandle(ctx), py_data, size, py_frame_info);
+//
+////            auto after_callback = std::chrono::high_resolution_clock::now();
+////            std::cout << "Python callback time: "
+////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_callback - checkpoint).count()
+////                      << " us" << std::endl;
+//
+//            auto end = std::chrono::high_resolution_clock::now();
+//            std::cout << "Total time: "
+//                      << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+//                      << " us" << std::endl;
+//
+//        } catch (py::error_already_set &e) {
+//            std::cerr << "Python data callback error: " << e.what() << std::endl;
+//        }
+//    } else {
+//        std::cout << "No Python callback found for client: " << ctx << std::endl;
+//    }
+//}
 
-            py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
+bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
+    bool is_release = true;
+    {
+        py::gil_scoped_acquire acquire;
+        auto it = g_py_data_callbacks.find(ctx);
+        if (it != g_py_data_callbacks.end()) {
+            try {
+    //            auto start = std::chrono::high_resolution_clock::now();
+    //            auto checkpoint = start;
 
-            it->second(VideoClientHandle(ctx), py_data, size, py_frame_info);
-        } catch (py::error_already_set &e) {
-            std::cerr << "Python data callback error: " << e.what() << std::endl;
+                // Step 1: Create py::array_t
+    //            std::cout << "C++ reference addresses: " << (void*)data << std::endl;
+                py::array_t<uint8_t> py_data({size}, {sizeof(uint8_t)}, data, py::none());
+    //            auto after_array_creation = std::chrono::high_resolution_clock::now();
+    //            std::cout << "Array creation time: "
+    //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_array_creation - checkpoint).count()
+    //                      << " us" << std::endl;
+    //            checkpoint = after_array_creation;
+
+                // Step 2: Create py::object for frame_info
+                py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
+    //            auto after_frame_info = std::chrono::high_resolution_clock::now();
+    //            std::cout << "Frame info creation time: "
+    //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_frame_info - checkpoint).count()
+    //                      << " us" << std::endl;
+    //            checkpoint = after_frame_info;
+
+                // Step 3: Call Python callback
+                py::object py_is_release = it->second(VideoClientHandle(ctx), py_data, size, py_frame_info);
+                is_release = py_is_release.cast<bool>();
+    //            std::cout << "C++ data address: " << (void*)data << std::endl;
+
+    //            auto after_callback = std::chrono::high_resolution_clock::now();
+    //            std::cout << "Python callback time: "
+    //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_callback - checkpoint).count()
+    //                      << " us" << std::endl;
+
+    //            auto end = std::chrono::high_resolution_clock::now();
+    //            std::cout << "Total time: "
+    //                      << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+    //                      << " us" << std::endl;
+            } catch (py::error_already_set &e) {
+                std::cerr << "Python data callback error: " << e.what() << std::endl;
+            }
+        } else {
+            std::cout << "No Python callback found for client: " << ctx << std::endl;
         }
-    } else {
-        std::cout << "No Python callback found for client: " << ctx << std::endl;
     }
+    return is_release;
 }
 
-// C++ 연결 해제 콜백 함수
 void cpp_disconnect_callback(video_client ctx, int code, const char* msg) {
     py::gil_scoped_acquire acquire;
     auto it = g_py_disconnect_callbacks.find(ctx);
@@ -146,7 +232,34 @@ PYBIND11_MODULE(videoclientapi_python, m) {
         return set_max_queue_size(handle.ptr, size);
     });
     m.def("api_init", &api_init);
-
+    m.def("release_frame", [](VideoClientHandle& handle, std::uintptr_t ptr) {
+        uint8_t* data_ptr = reinterpret_cast<uint8_t*>(ptr);
+//        std::cout << "[Return] C++ reference addresses: " << (void*)data_ptr << std::endl;
+        if (handle.ptr && ptr) {
+            try {
+                release_frame(handle.ptr, data_ptr);
+            } catch (const std::exception& e) {
+                PyErr_SetString(PyExc_RuntimeError, (std::string("Error in release_frame: ") + e.what()).c_str());
+                throw py::error_already_set();
+            }
+        } else {
+            PyErr_SetString(PyExc_ValueError, "Invalid handle or pointer");
+            throw py::error_already_set();
+        }
+    });
+    m.def("clear_all_frames", [](VideoClientHandle& handle) {
+        if (handle.ptr) {
+            try {
+                clear_all_frames(handle.ptr);
+            } catch (const std::exception& e) {
+                PyErr_SetString(PyExc_RuntimeError, (std::string("Error in clear_all_frames: ") + e.what()).c_str());
+                throw py::error_already_set();
+            }
+        } else {
+            PyErr_SetString(PyExc_ValueError, "Invalid handle");
+            throw py::error_already_set();
+        }
+    });
     // ********************
     // Attribute
     // ********************

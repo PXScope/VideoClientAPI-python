@@ -84,9 +84,18 @@ client.start_consumming()
 ```
 
 ## Etc
+### Clear package cache
+```shell
+rm -rf build/ dist/ *.egg-info/
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -name "*.pyc" -delete
+```
 ### Making .whl file
 ```shell
-cd ${ROOT_DIR}
+# wheel 패키지 설치
 pip install wheel
+```
+```shell
+cd ${ROOT_DIR}
 python setup.py bdist_wheel
 ```
