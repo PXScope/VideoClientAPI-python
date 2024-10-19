@@ -13,7 +13,9 @@ namespace py = pybind11;
 // 불투명 핸들을 위한 커스텀 타입
 struct VideoClientHandle {
     video_client ptr;
+
     explicit VideoClientHandle(video_client p) : ptr(p) {}
+
     ~VideoClientHandle() {
         if (ptr) {
             ptr = nullptr;
@@ -25,55 +27,6 @@ struct VideoClientHandle {
 std::unordered_map<video_client, py::function> g_py_data_callbacks;
 std::unordered_map<video_client, py::function> g_py_disconnect_callbacks;
 
-// C++ 데이터 콜백 함수
-//void cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
-//    py::gil_scoped_acquire acquire;
-//    auto it = g_py_data_callbacks.find(ctx);
-//    if (it != g_py_data_callbacks.end()) {
-//        try {
-//            auto start = std::chrono::high_resolution_clock::now();
-////            auto checkpoint = start;
-//
-//            // Step 1: Create py::array_t and Memory copy
-//            auto py_data = py::array_t<uint8_t>(size);
-//            py::buffer_info buf = py_data.request();
-//            uint8_t* ptr = static_cast<uint8_t*>(buf.ptr);
-//            std::memcpy(ptr, data, size * sizeof(uint8_t));
-////            auto after_array_creation = std::chrono::high_resolution_clock::now();
-////            std::cout << "Array creation and copy time: "
-////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_array_creation - checkpoint).count()
-////                      << " us" << std::endl;
-////            checkpoint = after_array_creation;
-//
-//            // Step 2: Create py::object for frame_info
-//            py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
-//
-////            auto after_frame_info = std::chrono::high_resolution_clock::now();
-////            std::cout << "Frame info creation time: "
-////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_frame_info - checkpoint).count()
-////                      << " us" << std::endl;
-////            checkpoint = after_frame_info;
-//
-//            // Step 3: Call Python callback
-//            it->second(VideoClientHandle(ctx), py_data, size, py_frame_info);
-//
-////            auto after_callback = std::chrono::high_resolution_clock::now();
-////            std::cout << "Python callback time: "
-////                      << std::chrono::duration_cast<std::chrono::microseconds>(after_callback - checkpoint).count()
-////                      << " us" << std::endl;
-//
-//            auto end = std::chrono::high_resolution_clock::now();
-//            std::cout << "Total time: "
-//                      << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-//                      << " us" << std::endl;
-//
-//        } catch (py::error_already_set &e) {
-//            std::cerr << "Python data callback error: " << e.what() << std::endl;
-//        }
-//    } else {
-//        std::cout << "No Python callback found for client: " << ctx << std::endl;
-//    }
-//}
 
 bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
     bool is_release = true;
@@ -150,8 +103,6 @@ PxMvCameraParameter copy_PxMvCameraParameter(const PxMvCameraParameter& self) {
 
     std::memcpy(&cameraParam.intrinsic, &self.intrinsic, sizeof(PxMvCameraIntrinsicUnion));
     std::memcpy(&cameraParam.extrinsic, &self.extrinsic, sizeof(PxMvCameraExtrinsic));
-
-    // 예약된 필드 복사
     std::memcpy(cameraParam._reserved1, self._reserved1, sizeof(cameraParam._reserved1));
 
     return cameraParam;
@@ -176,7 +127,6 @@ PxMvDeviceInfo copy_PxMvDeviceInfo(const PxMvDeviceInfo& self) {
 MV_FRAME_INFO copy_MV_FRAME_INFO(const MV_FRAME_INFO& self) {
     MV_FRAME_INFO frameInfo;
 
-    // 배열 복사
     std::memcpy(frameInfo.start_code, self.start_code, sizeof(frameInfo.start_code));
 
     frameInfo.header_size = self.header_size;
@@ -203,7 +153,7 @@ PYBIND11_MODULE(videoclientapi_python, m) {
     // ********************
     m.def("create_video_client", []() {
         video_client client = create_video_client();
-        return std::unique_ptr<VideoClientHandle>(new VideoClientHandle(client));
+        return VideoClientHandle(client);
     }, py::return_value_policy::take_ownership);
     m.def("release_video_client", [](VideoClientHandle& handle) {
         if (handle.ptr) {
@@ -216,7 +166,8 @@ PYBIND11_MODULE(videoclientapi_python, m) {
         return connect_video_client(handle.ptr, url, timeout_sec, cpp_disconnect_callback);
     });
     m.def("disconnect_video_client", [](VideoClientHandle& handle) {
-        return disconnect_video_client(handle.ptr);
+        auto result = disconnect_video_client(handle.ptr);
+        return result;
     });
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         return stop_video_client(handle.ptr);
@@ -224,9 +175,6 @@ PYBIND11_MODULE(videoclientapi_python, m) {
     m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, py::function callback) {
         g_py_data_callbacks[handle.ptr] = callback;
         return start_video_client(handle.ptr, vp_ctx, cpp_data_callback);
-    });
-    m.def("stop_video_client", [](VideoClientHandle& handle) {
-        return stop_video_client(handle.ptr);
     });
     m.def("set_max_queue_size", [](VideoClientHandle& handle, size_t size) {
         return set_max_queue_size(handle.ptr, size);
@@ -290,14 +238,8 @@ PYBIND11_MODULE(videoclientapi_python, m) {
     py::class_<VideoClientHandle>(m, "VideoClient")
         .def(py::init([]() {
             video_client client = create_video_client();
-            return std::unique_ptr<VideoClientHandle>(new VideoClientHandle(client));
+            return std::make_unique<VideoClientHandle>(client);
         }))
-        .def("__del__", [](VideoClientHandle& self) {
-            if (self.ptr) {
-                release_video_client(self.ptr);
-                self.ptr = nullptr;
-            }
-        })
     ;
 
     py::class_<videoproc_context>(m, "VideoProcContext")

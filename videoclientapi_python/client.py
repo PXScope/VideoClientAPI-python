@@ -15,11 +15,9 @@ logger = get_logger(__name__)
 
 class CustomDeque(deque):
 
-    def __init__(self, maxlen, ctx, packages, lock):
+    def __init__(self, maxlen, ctx):
         super().__init__(maxlen=maxlen)
-        self.packages = packages
         self.c = ctx
-        self.lock = lock
 
     def append(self, item):
         if len(self) == self.maxlen:
@@ -28,21 +26,17 @@ class CustomDeque(deque):
         super().append(item)
 
     def release_packet(self, item):
-        with self.lock:
-            try:
-                api.release_frame(self.c, item.package)
-            except Exception as e:
-                logger.warning(
-                    "failed to checkin package in deque: {}".format(e))
+        try:
+            api.release_frame(self.c, item.package)
+        except Exception as e:
+            logger.warning(
+                "failed to checkin package in deque: {}".format(e))
 
 
 class BufferQueue:
 
-    def __init__(self, size, ctx, packages, package_lock):
-        self.queue = CustomDeque(maxlen=size,
-                                 packages=packages,
-                                 ctx=ctx,
-                                 lock=package_lock)
+    def __init__(self, size, ctx):
+        self.queue = CustomDeque(maxlen=size, ctx=ctx)
         self.lock = Lock()
 
     def put(self, x):
@@ -124,10 +118,7 @@ class GrabClient:
         self.colorspace = colorspace
 
         self.is_running = False
-        # self.is_exit = False
-
-        self.packages = {}
-        self.package_lock = Lock()
+        self.is_exit = False
 
         self.fps = fps
 
@@ -135,7 +126,6 @@ class GrabClient:
         self.stabilize_sec = stabilize_sec
 
         self.verbose = verbose
-
         if self.verbose:
             logger.setLevel(logging.DEBUG)
         else:
@@ -152,6 +142,7 @@ class GrabClient:
             DST_COLORSPACE = api.PixelFormat.NONE
 
         self.c = api.create_video_client()
+
         if protocol == "tcp":
             ret = api.connect_video_client(self.c, f"{protocol}://{host}:{port}/{device}", 3, self.on_disconnected)
         elif protocol == "shdm":
@@ -161,23 +152,22 @@ class GrabClient:
 
         if ret != api.ApiError.SUCCESS:
             raise Exception(f"[{ret}] Failed to create client: {device}")
+        else:
+            logger.info("Connected to " + (f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}"))
 
-        logger.info("Connected to " + (f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}"))
-
+        # Setting videoproc_context
         self.p = api.VideoProcContext()
-
         if fps > 0:
             self.p.target_fps = fps
         self.p.gpu_index = gpu_index
         self.p.target_format = DST_COLORSPACE
 
-        self.buffer_queue = BufferQueue(max_buffer_size, self.c, self.packages, self.package_lock)
+        self.buffer_queue = BufferQueue(size=max_buffer_size, ctx=self.c)
         # api.set_max_queue_size(self.c, max_buffer_size)
 
         self.handler_thread = Thread(target=self.handler,
                                      args=(
                                          self.buffer_queue,
-                                         self.package_lock,
                                      ),
                                      daemon=True)
 
@@ -207,7 +197,6 @@ class GrabClient:
         if size != height * width * channels:
             logger.error(f"Frame size is weird: size: {size}, width: {width}, height: {height}, channels: {channels}")
             return True
-        # image = np.asarray(frame)
         image = np.frombuffer(frame, dtype=np.uint8)
         image = image.reshape((height, width, channels))
 
@@ -255,7 +244,6 @@ class GrabClient:
         )
         package_key = f"{device_name}_{timestamp}"
         package = data.__array_interface__['data'][0]
-        # print(f"Python data address: 0x{data.__array_interface__['data'][0]:x}")
 
         self.buffer_queue.put(
             edict({
@@ -271,29 +259,33 @@ class GrabClient:
         return False
 
     def start_consumming(self):
+        while (api.start_video_client(self.c, self.p, self.on_frame_package_received) != api.ApiError.SUCCESS):
+            time.sleep(1e-6)
+            if self.is_exit:
+                api.disconnect_video_client(self.c)
+                api.release_video_client(self.c)
+                return
+
         self.is_running = True
-        try:
-            ret = api.start_video_client(self.c, self.p, self.on_frame_package_received)
+        self.handler_thread.start()
 
-            self.handler_thread.start()
+        while self.is_running:
+            time.sleep(1e-6)
 
-            while self.is_running:
-                time.sleep(1e-6)
+        self.handler_thread.join()
 
-            self.handler_thread.join()
+        api.stop_video_client(self.c)
+        time.sleep(1)
 
-            api.stop_video_client(self.c)
-            time.sleep(1)
-            api.clear_all_frames(self.c)
+        api.clear_all_frames(self.c)
+        time.sleep(1)
 
-        except Exception as e:
-            logger.error(e)
-        finally:
+        api.disconnect_video_client(self.c)
+        api.release_video_client(self.c)
 
-            logger.info("client is terminated")
+        logger.info("client is terminated")
 
-
-    def handler(self, buffer_queue, package_lock):
+    def handler(self, buffer_queue):
         while True:
             data = buffer_queue.get()
 

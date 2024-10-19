@@ -4,8 +4,6 @@ from pathlib import Path
 
 
 class Visualizer:
-    def __init__(self):
-        self.n = 0
 
     @staticmethod
     def get_info_string(buffer):
@@ -13,17 +11,17 @@ class Visualizer:
         oss = ""
         oss += "\n[Frame Info]\n"
         oss += "- frame_num: " + str(info.package_number) + "\n"
-        # oss += "- timestamp: " + str(info.timestamp) + "\n"
-        # oss += "- frame_key: " + str(info.package_key) + "\n"
-        #
-        # oss += "- intr_id: " + str(info.intrinsic.id) + "\n"
-        # oss += "- fx_fy_cx_cy: " + str(info.intrinsic.fx_fy_cx_cy)
-        # oss += ", distortion: " + str(info.intrinsic.distortion)
-        # oss += "\n"
-        #
-        # oss += "- extr_id: " + str(info.extrinsic.id) + "\n"
-        # oss += "- rvec [ " + str(info.extrinsic.rvec)
-        # oss += ", tvec [ " + str(info.extrinsic.tvec) + "]"
+        oss += "- timestamp: " + str(info.timestamp) + "\n"
+        oss += "- frame_key: " + str(info.package_key) + "\n"
+
+        oss += "- intr_id: " + str(info.intrinsic.id) + "\n"
+        oss += "- fx_fy_cx_cy: " + str(info.intrinsic.fx_fy_cx_cy)
+        oss += ", distortion: " + str(info.intrinsic.distortion)
+        oss += "\n"
+
+        oss += "- extr_id: " + str(info.extrinsic.id) + "\n"
+        oss += "- rvec [ " + str(info.extrinsic.rvec)
+        oss += ", tvec [ " + str(info.extrinsic.tvec) + "]"
 
         return oss
 
@@ -34,5 +32,3 @@ class Visualizer:
         image = buffer.image
         if not cv2.imwrite(filename, image[:, :, ::-1]):
             print("Failed to save image")
-        else:
-            self.n += 1

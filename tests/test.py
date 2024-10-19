@@ -8,8 +8,8 @@ def main():
     visualizer = Visualizer()
 
     def cb(param):
-        # global visualizer
-        # print(visualizer.get_info_string(param))
+        global visualizer
+        print(visualizer.get_info_string(param))
         visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
         # pass
 
