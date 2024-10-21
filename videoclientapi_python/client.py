@@ -114,9 +114,9 @@ class GrabClient:
             raise ValueError(f"Input protocol is {protocol}. Protocol must be either tcp or shdm")
 
         if ret != api.ApiError.SUCCESS:
-            raise Exception(f"[{ret}] Failed to create client: {device}")
             api.disconnect_video_client(self.c)
             api.release_video_client(self.c)
+            raise Exception(f"[{ret}] Failed to create client: {device}")
         else:
             logger.info("Connected to " + (f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}"))
 
@@ -138,6 +138,7 @@ class GrabClient:
 
     def on_disconnected(self, ctx, code, msg):
         logger.info(f"[{code}]client is disconnected: {msg}")
+        self.buffer_queue.put(None)
 
     def on_frame_package_received(self, ctx, data, size, info):
         if self.stabilize_ts is None:
@@ -152,8 +153,8 @@ class GrabClient:
         _info = copy.deepcopy(info)
 
         package_number = _info.nFrameNum
-        timestamp = _info.utc_timestamp_us
         frame = data
+        timestamp = _info.utc_timestamp_us
         width = int(_info.deviceInfo.nWidth)
         height = int(_info.deviceInfo.nHeight)
         device_name = str(_info.deviceInfo.channelName)

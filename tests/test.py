@@ -10,7 +10,7 @@ def main():
     def cb(param):
         global visualizer
         print(visualizer.get_info_string(param))
-        visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
+        # visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
         # pass
 
     client = GrabClient(callback=cb,
@@ -19,7 +19,7 @@ def main():
                         devices=["MV-GTL-DEV-001"],
                         gpu_index=0,
                         fps=30,
-                        verbose=False,
+                        verbose=True,
                         colorspace="rgb")
     client.start_consumming()
 

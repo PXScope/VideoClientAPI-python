@@ -1,16 +1,12 @@
-#define PYBIND11_DETAILED_ERROR_MESSAGES
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <stdexcept>
 #include <pybind11/numpy.h>
-
 #include "video_client_api.h"
 #include "MvFrameHeader.h"
-#include <chrono>
 
 namespace py = pybind11;
 
-// 불투명 핸들을 위한 커스텀 타입
+
 struct VideoClientHandle {
     video_client ptr;
 
@@ -23,10 +19,8 @@ struct VideoClientHandle {
     }
 };
 
-// 전역 Python 콜백 저장소
-//std::unordered_map<video_client, std::weak_ptr<py::function>> g_py_data_callbacks;
 std::unordered_map<video_client, py::function> g_py_data_callbacks;
-std::unordered_map<video_client, std::weak_ptr<py::function>> g_py_disconnect_callbacks;
+std::unordered_map<video_client, py::function> g_py_disconnect_callbacks;
 
 bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
     py::gil_scoped_acquire acquire;
@@ -34,16 +28,10 @@ bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame
     auto it = g_py_data_callbacks.find(ctx);
     if (it != g_py_data_callbacks.end()) {
         try {
-            // Step 1: Create py::array_t
             py::array_t<uint8_t> py_data({size}, {sizeof(uint8_t)}, data, py::none());
-
-            // Step 2: Create py::object for frame_info
             py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
-
-            // Step 3: Call Python callback
             py::object py_is_release = it->second(VideoClientHandle(ctx), py_data, size, py_frame_info);
             is_release = py_is_release.cast<bool>();
-
         } catch (py::error_already_set &e) {
             std::cerr << "Python data callback error: " << e.what() << std::endl;
         }
@@ -54,17 +42,16 @@ bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame
 }
 
 void cpp_disconnect_callback(video_client ctx, int code, const char* msg) {
+    py::gil_scoped_acquire acquire;
     auto it = g_py_disconnect_callbacks.find(ctx);
     if (it != g_py_disconnect_callbacks.end()) {
-        if (auto callback = it->second.lock()) {
-            PyGILState_STATE gstate = PyGILState_Ensure();
-            try {
-                (*callback)(VideoClientHandle(ctx), code, msg);
-            } catch (const py::error_already_set& e) {
-                std::cerr << "Python error in disconnect callback: " << e.what() << std::endl;
-            }
-            PyGILState_Release(gstate);
+        try {
+            it->second(VideoClientHandle(ctx), code, msg);
+        } catch (const py::error_already_set& e) {
+            std::cerr << "Python error in disconnect callback: " << e.what() << std::endl;
         }
+    } else {
+        std::cout << "No callback found in map for ctx: " << ctx << std::endl;
     }
 }
 
@@ -137,13 +124,12 @@ PYBIND11_MODULE(videoclientapi_python, m) {
         }
     });
     m.def("connect_video_client", [](VideoClientHandle& handle, const char* url, float timeout_sec, py::function callback) {
-        auto shared_callback = std::make_shared<py::function>(std::move(callback));
-        g_py_disconnect_callbacks[handle.ptr] = shared_callback;
+        g_py_disconnect_callbacks[handle.ptr] = callback;
         return connect_video_client(handle.ptr, url, timeout_sec, cpp_disconnect_callback);
     });
     m.def("disconnect_video_client", [](VideoClientHandle& handle) {
-        auto result = disconnect_video_client(handle.ptr);
-        return result;
+        g_py_disconnect_callbacks.erase(handle.ptr);
+        return disconnect_video_client(handle.ptr);
     });
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         g_py_data_callbacks.erase(handle.ptr);
@@ -184,6 +170,7 @@ PYBIND11_MODULE(videoclientapi_python, m) {
             throw py::error_already_set();
         }
     });
+
     // ********************
     // Attribute
     // ********************
