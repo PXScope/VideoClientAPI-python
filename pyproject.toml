@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "pybind11>=2.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "videoclientapi_python"
+version = "1.0.3"
+description = "Python bindings for VideoClientAPI"
+requires-python = ">=3.8"
+dependencies = [
+    "pydantic==1.8.2",
+    "numpy",
+    "opencv-python-headless",
+    "easydict"
+]
+
+[tool.setuptools]
+packages = ["videoclientapi_python"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+videoclientapi_python = [
+    "lib/*.so*",
+    "include/*.h",
+]

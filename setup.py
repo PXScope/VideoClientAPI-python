@@ -1,10 +1,5 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension
-import os
-
-
-lib_dir = "videoclientapi_python/lib"
-include_dir = "videoclientapi_python/include"
 
 ext_modules = [
     Pybind11Extension(
@@ -20,20 +15,5 @@ ext_modules = [
 ]
 
 setup(
-    name="videoclientapi_python",
-    version="1.0.2",
-    python_requires=">=3.8",
-    packages=find_packages(),
     ext_modules=ext_modules,
-    package_data={"videoclientapi_python": [
-        "lib/*.so*",
-        "include/*.h",
-    ]},
-    include_package_data=True,
-    install_requires=[
-                      "pydantic==1.8.2",
-                      "numpy",
-                      "opencv-python-headless",
-                      "easydict"
-    ],
 )

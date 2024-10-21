@@ -92,10 +92,10 @@ find . -name "*.pyc" -delete
 ```
 ### Making .whl file
 ```shell
-# wheel 패키지 설치
-pip install wheel
+# build 패키지 설치
+pip install build
 ```
 ```shell
 cd ${ROOT_DIR}
-python setup.py bdist_wheel
+python -m build
 ```

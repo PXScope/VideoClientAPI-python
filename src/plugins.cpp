@@ -52,57 +52,6 @@ bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame
     }
     return is_release;
 }
-//bool cpp_data_callback(video_client ctx, uint8_t* data, size_t size, void* frame_info) {
-//    bool is_release = true;
-//    {
-//        auto it = g_py_data_callbacks.find(ctx);
-//        if (it != g_py_data_callbacks.end()) {
-//            if (auto callback_ptr = it->second.lock()) {
-//                try {
-//        //            auto start = std::chrono::high_resolution_clock::now();
-//        //            auto checkpoint = start;
-//
-//                    // Step 1: Create py::array_t
-//        //            std::cout << "C++ reference addresses: " << (void*)data << std::endl;
-//                    py::array_t<uint8_t> py_data({size}, {sizeof(uint8_t)}, data, py::none());
-//        //            auto after_array_creation = std::chrono::high_resolution_clock::now();
-//        //            std::cout << "Array creation time: "
-//        //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_array_creation - checkpoint).count()
-//        //                      << " us" << std::endl;
-//        //            checkpoint = after_array_creation;
-//
-//                    // Step 2: Create py::object for frame_info
-//                    py::object py_frame_info = py::cast(static_cast<MV_FRAME_INFO*>(frame_info), py::return_value_policy::reference);
-//        //            auto after_frame_info = std::chrono::high_resolution_clock::now();
-//        //            std::cout << "Frame info creation time: "
-//        //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_frame_info - checkpoint).count()
-//        //                      << " us" << std::endl;
-//        //            checkpoint = after_frame_info;
-//
-//                    // Step 3: Call Python callback
-//                    py::object py_is_release = (*callback_ptr)(VideoClientHandle(ctx), py_data, size, py_frame_info);
-//                    is_release = py_is_release.cast<bool>();
-//        //            std::cout << "C++ data address: " << (void*)data << std::endl;
-//
-//        //            auto after_callback = std::chrono::high_resolution_clock::now();
-//        //            std::cout << "Python callback time: "
-//        //                      << std::chrono::duration_cast<std::chrono::microseconds>(after_callback - checkpoint).count()
-//        //                      << " us" << std::endl;
-//
-//        //            auto end = std::chrono::high_resolution_clock::now();
-//        //            std::cout << "Total time: "
-//        //                      << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-//        //                      << " us" << std::endl;
-//                } catch (py::error_already_set &e) {
-//                    std::cerr << "Python data callback error: " << e.what() << std::endl;
-//                }
-//            }
-//        } else {
-//            std::cout << "No Python callback found for client: " << ctx << std::endl;
-//        }
-//    }
-//    return is_release;
-//}
 
 void cpp_disconnect_callback(video_client ctx, int code, const char* msg) {
     auto it = g_py_disconnect_callbacks.find(ctx);
