@@ -19,7 +19,7 @@ def main():
                         devices=["MV-GTL-DEV-001"],
                         gpu_index=0,
                         fps=30,
-                        verbose=True,
+                        verbose=False,
                         colorspace="rgb")
     client.start_consumming()
 

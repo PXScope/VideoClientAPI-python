@@ -56,44 +56,7 @@ class BufferQueue:
 
 
 class GrabClient:
-    """비디오 스트림을 캡쳐하고 처리하는 클라이언트 클래스
 
-    Args:
-        callback (callable): 프레임 처리 후 호출될 콜백 함수.
-        host (str): 연결할 호스트 주소.
-        port (int): 연결할 포트 번호.
-        devices (list): 사용할 디바이스 목록 (현재는 단일 디바이스만 지원).
-        fps (int, optional): 목표 프레임 레이트. Defaults to 0.
-        gpu_index (int, optional): 사용할 GPU 인덱스. Defaults to 0.
-        colorspace (str, optional): 사용할 색공간 ("rgb", "bgr", "mono"). Defaults to "rgb".
-        protocol (str, optional): 사용할 프로토콜 ("tcp" 또는 "shdm"). Defaults to "tcp".
-        max_buffer_size (int, optional): 최대 버퍼 크기. Defaults to 120.
-        stabilize_sec (float, optional): 클라이언트 안정화를 위한 대기 시간(초). Defaults to 1.
-        verbose (bool, optional): 상세 로깅 여부. Defaults to False.
-
-    Raises:
-        AssertionError: devices 리스트의 길이가 0이거나 1보다 큰 경우.
-        AssertionError: 지원하지 않는 colorspace가 지정된 경우.
-        ValueError: 지원하는 protocol(tcp, shmd)이 아닌경우.
-        Exception: 클라이언트 생성에 실패한 경우.
-
-    Example:
-        from videoclientapi_python.client import GrabClient
-
-        def cb(param):
-            pass
-
-        client = GrabClient(callback=cb,
-                            host="",
-                            port=0,
-                            devices=["DA3180173"],
-                            protocol="shdm",
-                            gpu_index=0,
-                            fps=30,
-                            colorspace="rgb")
-        client = GrabClient(frame_callback, "localhost", 8080, ["camera1"], fps=30)
-        client.start_consumming()
-    """
     def __init__(self,
                  callback,
                  host,
@@ -118,7 +81,7 @@ class GrabClient:
         self.colorspace = colorspace
 
         self.is_running = False
-        self.is_exit = False
+        self.is_exit = True
 
         self.fps = fps
 
@@ -152,6 +115,8 @@ class GrabClient:
 
         if ret != api.ApiError.SUCCESS:
             raise Exception(f"[{ret}] Failed to create client: {device}")
+            api.disconnect_video_client(self.c)
+            api.release_video_client(self.c)
         else:
             logger.info("Connected to " + (f"{protocol}://{device}" if protocol == "shdm" else f"{device}://{host}:{port}/{device}"))
 
@@ -163,7 +128,7 @@ class GrabClient:
         self.p.target_format = DST_COLORSPACE
 
         self.buffer_queue = BufferQueue(size=max_buffer_size, ctx=self.c)
-        # api.set_max_queue_size(self.c, max_buffer_size)
+        api.set_max_queue_size(self.c, max_buffer_size)
 
         self.handler_thread = Thread(target=self.handler,
                                      args=(
@@ -255,25 +220,23 @@ class GrabClient:
                 "package": package,
                 "package_key": package_key
             }))
-        # time.sleep(0.5)
         return False
 
     def start_consumming(self):
-        while (api.start_video_client(self.c, self.p, self.on_frame_package_received) != api.ApiError.SUCCESS):
-            time.sleep(1e-6)
-            if self.is_exit:
-                api.disconnect_video_client(self.c)
-                api.release_video_client(self.c)
-                return
+        ret = api.start_video_client(self.c, self.p, self.on_frame_package_received)
 
-        self.is_running = True
-        self.handler_thread.start()
+        if ret == api.ApiError.SUCCESS:
+            self.is_running = True
+            self.handler_thread.start()
 
-        while self.is_running:
-            time.sleep(1e-6)
+            while self.is_running:
+                time.sleep(1e-6)
 
-        self.handler_thread.join()
+            self.handler_thread.join()
 
+        # ******************
+        # Clear VideoClient
+        # ******************
         api.stop_video_client(self.c)
         time.sleep(1)
 
