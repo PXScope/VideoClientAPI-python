@@ -117,32 +117,40 @@ PYBIND11_MODULE(videoclientapi_python, m) {
         video_client client = create_video_client();
         return VideoClientHandle(client);
     }, py::return_value_policy::take_ownership);
+
     m.def("release_video_client", [](VideoClientHandle& handle) {
         if (handle.ptr) {
             release_video_client(handle.ptr);
             handle.ptr = nullptr;
         }
     });
+
     m.def("connect_video_client", [](VideoClientHandle& handle, const char* url, float timeout_sec, py::function callback) {
         g_py_disconnect_callbacks[handle.ptr] = callback;
         return connect_video_client(handle.ptr, url, timeout_sec, cpp_disconnect_callback);
     });
+
     m.def("disconnect_video_client", [](VideoClientHandle& handle) {
         g_py_disconnect_callbacks.erase(handle.ptr);
         return disconnect_video_client(handle.ptr);
     });
+
     m.def("stop_video_client", [](VideoClientHandle& handle) {
         g_py_data_callbacks.erase(handle.ptr);
         return stop_video_client(handle.ptr);
     });
+
     m.def("start_video_client", [](VideoClientHandle& handle, videoproc_context vp_ctx, py::function callback) {
         g_py_data_callbacks[handle.ptr] = callback;
         return start_video_client(handle.ptr, vp_ctx, cpp_data_callback);
     });
+
     m.def("set_max_queue_size", [](VideoClientHandle& handle, size_t size) {
         return set_max_queue_size(handle.ptr, size);
     });
+
     m.def("api_init", &api_init);
+
     m.def("release_frame", [](VideoClientHandle& handle, std::uintptr_t ptr) {
         uint8_t* data_ptr = reinterpret_cast<uint8_t*>(ptr);
         if (handle.ptr && ptr) {
@@ -157,6 +165,7 @@ PYBIND11_MODULE(videoclientapi_python, m) {
             throw py::error_already_set();
         }
     });
+
     m.def("clear_all_frames", [](VideoClientHandle& handle) {
         if (handle.ptr) {
             try {

@@ -56,7 +56,44 @@ class BufferQueue:
 
 
 class GrabClient:
+    """A client for grabbing and processing video streams from devices.
 
+    This class handles video stream capture from a device, processes the frames,
+    and delivers them through a callback function.
+    Parameter named `devices` is list type but multiple devices are not supported yet.
+    You can use only single device in this version.
+
+    Args:
+        callback (callable): A function to handle processed frames.
+        host (str): The host address to connect to.
+        port (int): The port number for the connection.
+        devices (list): List of device identifiers to capture from.
+        fps (int, optional): Target frames per second. If 0, runs at maximum possible speed.
+            Defaults to 0.
+        gpu_index (int, optional): Index of GPU to use for processing. Defaults to 0.
+        colorspace (str, optional): Color space for frame processing ("rgb", "bgr", "mono" is supported).
+            Defaults to "rgb".
+        protocol (str, optional): Communication protocol to use ("tcp" or "shdm").
+            Defaults to "tcp".
+        max_buffer_size (int, optional): Maximum size of the frame buffer.
+            Defaults to 120.
+        stabilize_sec (int, optional): Time in seconds to wait for stream stabilization.
+            Defaults to 1.
+        verbose (bool, optional): Whether to print detailed processing information.
+            Defaults to False.
+
+    Examples:
+        >>> from videoclientapi_python.client import GrabClient
+        >>> def callback(param):
+        ...     pass
+        >>> client = GrabClient(
+        ...     callback,
+        ...     host="127.0.0.1",
+        ...     port=31000,
+        ...     devices=["MV-GTL-DEV-001"],
+        ...     )
+        >>> client.start_consumming()
+    """
     def __init__(self,
                  callback,
                  host,
