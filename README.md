@@ -22,7 +22,7 @@ cp -r ../linux_out/* ../../videoclientapi_python
 ```
 **pxcast-protocols-generated**
 
-Please check out 솓 README.md file in [pxcast-protocols-generated](https://github.com/PXScope/pxcast-protocols-generated.git)
+Please check out README.md file in [pxcast-protocols-generated](https://github.com/PXScope/pxcast-protocols-generated.git)
 ## Usage
 
 ### Server connection (video-server or grab-server)
