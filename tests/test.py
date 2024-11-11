@@ -16,7 +16,7 @@ def main():
     def cb(param):
         global visualizer
         print(visualizer.get_info_string(param))
-        visualizer.save_frame_as_image(param, save_path=save_path)
+        # visualizer.save_frame_as_image(param, save_path=save_path)
         # visualizer.save_frame_as_image(param, save_path="/home/kwon/Downloads/images")
         # pass
 
